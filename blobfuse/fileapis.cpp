@@ -200,7 +200,7 @@ int azs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse
 
     size_t real_offset = offset;
     size_t real_size = size;
-    for (int i = begin_chunk; i<= end_chunk; ++i) {
+    for (size_t i = begin_chunk; i <= end_chunk; ++i) {
         if (s_file_map[mntPathString][i] == true) {
             real_offset += DOWNLOAD_CHUNK_SIZE;
             real_size -= DOWNLOAD_CHUNK_SIZE;
@@ -210,32 +210,28 @@ int azs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse
         }
     }
 
-    if (real_size < 0) {
-        goto READ_FILE;
-    }
+    if (real_size > 0) {
+        begin_chunk = real_offset / DOWNLOAD_CHUNK_SIZE;
+        for (int i = end_chunk; i >= (int)begin_chunk; --i) {
+            if (s_file_map[mntPathString][i] == true) {
+                real_size -= DOWNLOAD_CHUNK_SIZE;
+            }
+        }
+        if (real_size > 0) {
+            std::unique_lock<std::mutex> lock(*fmutex, std::defer_lock);
+            syslog(LOG_ERR, "Read file from Azure, offset is %lu, size is %lu\n", real_offset, real_size);
+            lock.lock();
+            azure_blob_client_wrapper->download_blob_to_file(str_options.containerName, pathString.substr(1), mntPathString, real_offset, real_size);
+            lock.unlock();
 
-    begin_chunk = real_offset / DOWNLOAD_CHUNK_SIZE;
-    std::unique_lock<std::mutex> lock(*fmutex, std::defer_lock);
-    for (int i = end_chunk; i>= begin_chunk; --i) {
-        if (s_file_map[mntPathString][i] == true) {
-            real_size -= DOWNLOAD_CHUNK_SIZE;
+            if (errno != 0) {
+                syslog(LOG_ERR, "Failed to download data form azure\n");
+                return -errno;
+            }
         }
     }
-    if (real_size < 0) {
-        goto READ_FILE;
-    }
 
-    syslog(LOG_ERR, "Read file from Azure, offset is %lld, size is %lld\n", real_offset, real_size);
-    lock.lock();
-    azure_blob_client_wrapper->download_blob_to_file(str_options.containerName, pathString.substr(1), mntPathString, real_offset, real_size);
-    lock.unlock();
 
-    if (errno != 0) {
-        syslog(LOG_ERR, "Failed to download data form azure\n");
-        return -errno;
-    }
-
-READ_FILE:
     int fd = ((struct fhwrapper *)fi->fh)->fh;
 
     errno = 0;
