@@ -218,7 +218,6 @@ int azs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse
             }
         }
         if (real_size > 0) {
-            std::unique_lock<std::mutex> lock(*fmutex, std::defer_lock);
             std::lock_guard<std::mutex> lock(*fmutex);
             syslog(LOG_ERR, "Read file from Azure, offset is %lu, size is %lu\n", real_offset, real_size);
             azure_blob_client_wrapper->download_blob_to_file(str_options.containerName, pathString.substr(1), mntPathString, real_offset, real_size);
