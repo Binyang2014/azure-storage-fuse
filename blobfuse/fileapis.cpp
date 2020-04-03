@@ -186,15 +186,13 @@ int azs_open(const char *path, struct fuse_file_info *fi)
 int azs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
     syslog(LOG_INFO, "azs_read called with path %s\n", path);
-
     std::string pathString(path);
-    std::ofstream os(destPath.c_str(), std::ofstream::binary | std::ofstream::out);
-    os.seekp(offset);
+    std::string mntPathString = prepend_mnt_path_string(pathString);
 
     auto fmutex = file_lock_map::get_instance()->get_mutex(path);
     std::unique_lock<std::mutex> lock(*fmutex, std::defer_lock);
     lock.lock();
-    azure_blob_client_wrapper->download_blob_to_stream(str_options.containerName, pathString.substr(1), offset, size, os);
+    azure_blob_client_wrapper->download_blob_to_file(str_options.containerName, pathString.substr(1), mntPathString, offset, size);
     lock.unlock();
 
     if (errno != 0) {
