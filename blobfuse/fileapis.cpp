@@ -196,10 +196,10 @@ int azs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse
 
     auto fmutex = file_lock_map::get_instance()->get_mutex(path);
     size_t begin_chunk = offset / DOWNLOAD_CHUNK_SIZE;
-    size_t end_chunk = (offset + size) / DOWNLOAD_CHUNK_SIZE;
+    size_t end_chunk = (offset + size - 1) / DOWNLOAD_CHUNK_SIZE;
 
     size_t real_offset = offset;
-    size_t real_size = size;
+    long long real_size = size;
     for (size_t i = begin_chunk; i <= end_chunk; ++i) {
         if (s_file_map[mntPathString][i] == true) {
             real_offset += DOWNLOAD_CHUNK_SIZE;
@@ -219,22 +219,21 @@ int azs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse
         }
         if (real_size > 0) {
             std::unique_lock<std::mutex> lock(*fmutex, std::defer_lock);
+            std::lock_guard<std::mutex> lock(*fmutex);
             syslog(LOG_ERR, "Read file from Azure, offset is %lu, size is %lu\n", real_offset, real_size);
-            lock.lock();
             azure_blob_client_wrapper->download_blob_to_file(str_options.containerName, pathString.substr(1), mntPathString, real_offset, real_size);
-            lock.unlock();
 
             if (errno != 0) {
                 syslog(LOG_ERR, "Failed to download data form azure\n");
                 return -errno;
             }
-        }
-    }
 
-    begin_chunk = offset / DOWNLOAD_CHUNK_SIZE;
-    end_chunk = (offset + size) / DOWNLOAD_CHUNK_SIZE;
-    for (size_t i = begin_chunk; i <= end_chunk; ++i) {
-        s_file_map[mntPathString][i] = true;
+            begin_chunk = offset / DOWNLOAD_CHUNK_SIZE;
+            end_chunk = (offset + size - 1) / DOWNLOAD_CHUNK_SIZE;
+            for (size_t i = begin_chunk; i <= end_chunk; ++i) {
+                s_file_map[mntPathString][i] = true;
+            }
+        }
     }
 
 

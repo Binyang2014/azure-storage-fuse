@@ -686,6 +686,7 @@ namespace microsoft_azure {
             // always flush file map when open a file
             file_map[destPath] = std::vector<bool>(blobProperty.size / DOWNLOAD_CHUNK_SIZE + 1, false);
             returned_last_modified = blobProperty.last_modified;
+            truncate(destPath.c_str(), blobProperty.size);
             return;
         }
 
@@ -799,6 +800,16 @@ namespace microsoft_azure {
                 return;
             }
 
+            struct stat stat_buf;
+            int rc = stat(destPath.c_str(), &stat_buf);
+            if (rc != 0) {
+                syslog(LOG_ERR, "failed to get file size");
+                errno = unknown_error;
+                return;
+            }
+
+            const unsigned long long file_size = stat_buf.st_size;
+
             const size_t downloaders = std::min(parallel, static_cast<size_t>(m_concurrency));
             storage_outcome<chunk_property> firstChunk;
             try
@@ -812,11 +823,12 @@ namespace microsoft_azure {
                 const auto end_offset = file_offset + size; 
                 const auto chunk_size = std::max(DOWNLOAD_CHUNK_SIZE, (left + downloaders - 1)/ downloaders);
                 std::vector<std::future<int>> task_list;
-                syslog(LOG_ERR, "try to get chunk.  container = %s, blob = %s, destPath = %s, offset = %llu, size = %llu.", container.c_str(), blob.c_str(), destPath.c_str(), file_offset, size);
                 for(unsigned long long offset = file_offset; offset < end_offset; offset += chunk_size)
                 {
-                    const auto range = std::min(chunk_size, end_offset - offset);
-                    syslog(LOG_ERR, "offset is %llu, end_offset is %llu, chunk size is %llu range is %llu", offset, end_offset, size, range);
+                    auto range = std::max(chunk_size, end_offset - offset);
+                    if (offset + range > file_size) {
+                        range = file_size - offset;
+                    }
                     auto single_download = std::async(std::launch::async, [offset, range, this, &destPath, &container, &blob](){
                             // Note, keep std::ios_base::in to prevent truncating of the file.
                             std::ofstream output(destPath.c_str(), std::ios_base::out |  std::ios_base::in);
