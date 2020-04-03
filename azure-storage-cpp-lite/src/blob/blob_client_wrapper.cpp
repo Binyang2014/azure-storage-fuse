@@ -674,7 +674,8 @@ namespace microsoft_azure {
             }
             auto fd = open(destPath.c_str(), O_WRONLY, 0770);
             if (-1 == fd) {
-                return false;
+                errno = unknown_error;
+                return;
             }
             close(fd);
             auto blobProperty = get_blob_property(container, blob);
