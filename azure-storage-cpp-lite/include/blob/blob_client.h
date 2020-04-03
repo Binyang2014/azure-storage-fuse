@@ -344,6 +344,7 @@ namespace microsoft_azure { namespace storage {
         /// <param name="parallel">A size_t value indicates the maximum parallelism can be used in this request.</param>
         virtual void download_blob_to_file(const std::string &container, const std::string &blob, const std::string &destPath, time_t &returned_last_modified, size_t parallel = 9) = 0;
 
+        virtual void create_mock_file(const std::string &container, const std::string &blob, const std::string &destPath, time_t &returned_last_modified) = 0;
         /// <summary>
         /// Gets the property of a blob.
         /// </summary>
@@ -806,6 +807,7 @@ namespace microsoft_azure { namespace storage {
         /// <returns>A <see cref="storage_outcome" /> object that represents the properties (etag, last modified time and size) from the first chunk retrieved.</returns>
         void download_blob_to_file(const std::string &container, const std::string &blob, const std::string &destPath, time_t &returned_last_modified, size_t parallel = 8);
 
+        void create_mock_file(const std::string &container, const std::string &blob, const std::string &destPath, time_t &returned_last_modified) {};
         /// <summary>
         /// Gets the property of a blob.
         /// </summary>
