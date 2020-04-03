@@ -4,6 +4,8 @@
 #include <memory>
 #include <string>
 #include <mutex>
+#include <unordered_map>
+#include <vector>
 #include <boost/thread/shared_mutex.hpp>
 #include <syslog.h>
 
@@ -346,7 +348,7 @@ namespace microsoft_azure { namespace storage {
 
         virtual void download_blob_to_file(const std::string &container, const std::string &blob, const std::string &destPath, unsigned long long file_offset, unsigned long long size, size_t parallel = 9) = 0;
         
-        virtual void create_mock_file(const std::string &container, const std::string &blob, const std::string &destPath, time_t &returned_last_modified) = 0;
+        virtual void create_mock_file(const std::string &container, const std::string &blob, const std::string &destPath, std::unordered_map<std::string, std::vector<bool>> &file_map, time_t &returned_last_modified) = 0;
         /// <summary>
         /// Gets the property of a blob.
         /// </summary>
@@ -525,7 +527,7 @@ namespace microsoft_azure { namespace storage {
 
         void download_blob_to_file(const std::string &container, const std::string &blob, const std::string &destPath, unsigned long long file_offset, unsigned long long size, size_t parallel = 9);
         // Only create a mock file with correct filename, will not download the whole file
-        void create_mock_file(const std::string &container, const std::string &blob, const std::string &destPath, time_t &returned_last_modified);
+        void create_mock_file(const std::string &container, const std::string &blob, const std::string &destPath, std::unordered_map<std::string, std::vector<bool>> &file_map, time_t &returned_last_modified);
 
         /// <summary>
         /// Gets the property of a blob.
@@ -812,7 +814,7 @@ namespace microsoft_azure { namespace storage {
 
         #pragma GCC diagnostic ignored "-Wunused-parameter"
         void download_blob_to_file(const std::string &container, const std::string &blob, const std::string &destPath, unsigned long long file_offset, unsigned long long size, size_t parallel = 9) {};
-        void create_mock_file(const std::string &container, const std::string &blob, const std::string &destPath, time_t &returned_last_modified) {};
+        void create_mock_file(const std::string &container, const std::string &blob, const std::string &destPath, std::unordered_map<std::string, std::vector<bool>> &file_map, time_t &returned_last_modified) {};
         #pragma GCC diagnostic pop
         /// <summary>
         /// Gets the property of a blob.

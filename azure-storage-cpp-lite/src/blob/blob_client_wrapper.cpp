@@ -665,7 +665,7 @@ namespace microsoft_azure {
             }
         }
 
-        void blob_client_wrapper::create_mock_file(const std::string &container, const std::string &blob, const std::string &destPath, time_t &returned_last_modified)
+        void blob_client_wrapper::create_mock_file(const std::string &container, const std::string &blob, const std::string &destPath, std::unordered_map<std::string, std::vector<bool>> &file_map, time_t &returned_last_modified)
         {
             if(!is_valid())
             {
@@ -683,6 +683,8 @@ namespace microsoft_azure {
                 errno = unknown_error;
                 return;
             }
+            // always flush file map when open a file
+            file_map[destPath] = std::vector<bool>(blobProperty.size / DOWNLOAD_CHUNK_SIZE + 1, false);
             returned_last_modified = blobProperty.last_modified;
             return;
         }

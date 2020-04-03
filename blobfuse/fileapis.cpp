@@ -1,5 +1,7 @@
 #include "blobfuse.h"
 #include <sys/file.h>
+#include <vector>
+#include <unordered_map>
 
 file_lock_map* file_lock_map::get_instance()
 {
@@ -29,6 +31,8 @@ std::shared_ptr<std::mutex> file_lock_map::get_mutex(const std::string& path)
         return iter->second;
     }
 }
+
+std::unordered_map<std:string, std:vector<bool>> s_file_map;
 
 std::shared_ptr<file_lock_map> file_lock_map::s_instance;
 std::mutex file_lock_map::s_mutex;
@@ -115,7 +119,7 @@ int azs_open(const char *path, struct fuse_file_info *fi)
             time_t last_modified = {};
             // Here just create a file at mntPathString
             // azure_blob_client_wrapper->download_blob_to_file(str_options.containerName, pathString.substr(1), mntPathString, last_modified);
-            azure_blob_client_wrapper->create_mock_file(str_options.containerName, pathString.substr(1), mntPathString, last_modified);
+            azure_blob_client_wrapper->create_mock_file(str_options.containerName, pathString.substr(1), mntPathString, s_file_map, last_modified);
             if (errno != 0)
             {
                 int storage_errno = errno;
@@ -186,13 +190,44 @@ int azs_open(const char *path, struct fuse_file_info *fi)
 int azs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
     syslog(LOG_INFO, "azs_read called with path %s\n", path);
+    const unsigned long long DOWNLOAD_CHUNK_SIZE = 16 * 1024 * 1024;
     std::string pathString(path);
     std::string mntPathString = prepend_mnt_path_string(pathString);
 
     auto fmutex = file_lock_map::get_instance()->get_mutex(path);
+    size_t begin_chunk = offset / DOWNLOAD_CHUNK_SIZE;
+    size_t end_chunk = (offset + size) / DOWNLOAD_CHUNK_SIZE;
+
+    size_t real_offset = offset;
+    size_t real_size = size;
+    for (int i = begin_chunk; i<= end_chunk; ++i) {
+        if (s_file_map[mntPathString][i] == true) {
+            real_offset += DOWNLOAD_CHUNK_SIZE;
+            real_size -= DOWNLOAD_CHUNK_SIZE;
+        }
+        else {
+            break;
+        }
+    }
+
+    if (real_size < 0) {
+        goto READ_FILE;
+    }
+
+    begin_chunk = real_offset / DOWNLOAD_CHUNK_SIZE;
     std::unique_lock<std::mutex> lock(*fmutex, std::defer_lock);
+    for (int i = end_chunk; i>= begin_chunk; --i) {
+        if (s_file_map[mntPathString][i] == true) {
+            real_size -= DOWNLOAD_CHUNK_SIZE;
+        }
+    }
+    if (real_size < 0) {
+        goto READ_FILE;
+    }
+
+    syslog(LOG_ERR, "Read file from Azure, offset is %lld, size is %lld\n", real_offset, real_size);
     lock.lock();
-    azure_blob_client_wrapper->download_blob_to_file(str_options.containerName, pathString.substr(1), mntPathString, offset, size);
+    azure_blob_client_wrapper->download_blob_to_file(str_options.containerName, pathString.substr(1), mntPathString, real_offset, real_size);
     lock.unlock();
 
     if (errno != 0) {
@@ -200,6 +235,7 @@ int azs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse
         return -errno;
     }
 
+READ_FILE:
     int fd = ((struct fhwrapper *)fi->fh)->fh;
 
     errno = 0;
