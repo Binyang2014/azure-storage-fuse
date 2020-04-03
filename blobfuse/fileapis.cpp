@@ -113,7 +113,9 @@ int azs_open(const char *path, struct fuse_file_info *fi)
 
             errno = 0;
             time_t last_modified = {};
-            azure_blob_client_wrapper->download_blob_to_file(str_options.containerName, pathString.substr(1), mntPathString, last_modified);
+            // Here just create a file at mntPathString
+            // azure_blob_client_wrapper->download_blob_to_file(str_options.containerName, pathString.substr(1), mntPathString, last_modified);
+            create_mock_file(str_options.containerName, pathString.substr(1), mntPathString, last_modified)
             if (errno != 0)
             {
                 int storage_errno = errno;

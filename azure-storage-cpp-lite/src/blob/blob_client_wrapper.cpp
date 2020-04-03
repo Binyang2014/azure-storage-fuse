@@ -665,6 +665,27 @@ namespace microsoft_azure {
             }
         }
 
+        void create_mock_file(const std::string &container, const std::string &blob, const std::string &destPath, time_t &returned_last_modified)
+        {
+            if(!is_valid())
+            {
+                errno = client_not_init;
+                return;
+            }
+            auto fd = open(destPath.c_str(), O_WRONLY, 0770);
+            if (-1 == fd) {
+                return false;
+            }
+            close(fd);
+            auto blobProperty = get_blob_property(container, blob);
+            if (!blobProperty.valid()) {
+                errno = unknown_error;
+                return;
+            }
+            returned_last_modified = blobProperty.last_modified;
+            return;
+        }
+
         void blob_client_wrapper::download_blob_to_file(const std::string &container, const std::string &blob, const std::string &destPath, time_t &returned_last_modified, size_t parallel)
         {
             if(!is_valid())
