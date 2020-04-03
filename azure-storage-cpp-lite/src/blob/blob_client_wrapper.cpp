@@ -791,7 +791,7 @@ namespace microsoft_azure {
             return;
         }
 
-        void blob_client_wrapper::download_blob_to_file(const std::string &container, const std::string &blob, const std::string &destPath, const off_t file_offset, const size_t size, size_t parallel)
+        void blob_client_wrapper::download_blob_to_file(const std::string &container, const std::string &blob, const std::string &destPath, const uint64_t file_offset, const uint64_t size, size_t parallel)
         {
             if(!is_valid())
             {
