@@ -791,7 +791,7 @@ namespace microsoft_azure {
             return;
         }
 
-        void blob_client_wrapper::download_blob_to_file(const std::string &container, const std::string &blob, const std::string &destPath, unsigned long long file_offset, unsigned long long size, size_t parallel)
+        void blob_client_wrapper::download_blob_to_file(const std::string &container, const std::string &blob, const std::string &destPath, const  offset_t file_offset, const size_t size, size_t parallel)
         {
             if(!is_valid())
             {
@@ -809,12 +809,14 @@ namespace microsoft_azure {
 
                 // Download the rest.
                 const auto left = size;
-                const auto length = size;
+                const auto end_offset = file_offset + size; 
                 const auto chunk_size = std::max(DOWNLOAD_CHUNK_SIZE, (left + downloaders - 1)/ downloaders);
                 std::vector<std::future<int>> task_list;
-                for(unsigned long long offset = file_offset; offset < file_offset + length; offset += chunk_size)
+                syslog(LOG_ERR, "try to get chunk.  container = %s, blob = %s, destPath = %s, offset = %llu, size = %llu.", container.c_str(), blob.c_str(), destPath.c_str(), file_offset, size);
+                for(unsigned long long offset = file_offset; offset < end_offset; offset += chunk_size)
                 {
-                    const auto range = std::min(chunk_size, length - offset);
+                    const auto range = std::min(chunk_size, end_offset - offset);
+                    syslog(LOG_ERR, "offset is %llu, end_offset is %llu, chunk size is %llu range is %llu", offset, end_offset, size, range);
                     auto single_download = std::async(std::launch::async, [offset, range, this, &destPath, &container, &blob](){
                             // Note, keep std::ios_base::in to prevent truncating of the file.
                             std::ofstream output(destPath.c_str(), std::ios_base::out |  std::ios_base::in);

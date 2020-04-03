@@ -189,7 +189,7 @@ int azs_open(const char *path, struct fuse_file_info *fi)
  */
 int azs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
-    syslog(LOG_INFO, "azs_read called with path %s\n", path);
+    syslog(LOG_ERR, "azs_read called with path %s offset %lu size %lu\n", path, offset, size);
     const unsigned long long DOWNLOAD_CHUNK_SIZE = 16 * 1024 * 1024;
     std::string pathString(path);
     std::string mntPathString = prepend_mnt_path_string(pathString);
@@ -229,6 +229,12 @@ int azs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse
                 return -errno;
             }
         }
+    }
+
+    begin_chunk = offset / DOWNLOAD_CHUNK_SIZE;
+    end_chunk = (offset + size) / DOWNLOAD_CHUNK_SIZE;
+    for (size_t i = begin_chunk; i <= end_chunk; ++i) {
+        s_file_map[mntPathString][i] = true;
     }
 
 
