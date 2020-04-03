@@ -807,7 +807,9 @@ namespace microsoft_azure { namespace storage {
         /// <returns>A <see cref="storage_outcome" /> object that represents the properties (etag, last modified time and size) from the first chunk retrieved.</returns>
         void download_blob_to_file(const std::string &container, const std::string &blob, const std::string &destPath, time_t &returned_last_modified, size_t parallel = 8);
 
+        #pragma GCC diagnostic ignored "-Wunused-parameter"
         void create_mock_file(const std::string &container, const std::string &blob, const std::string &destPath, time_t &returned_last_modified) {};
+        #pragma GCC diagnostic pop
         /// <summary>
         /// Gets the property of a blob.
         /// </summary>
