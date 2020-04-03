@@ -686,7 +686,10 @@ namespace microsoft_azure {
             // always flush file map when open a file
             file_map[destPath] = std::vector<bool>(blobProperty.size / DOWNLOAD_CHUNK_SIZE + 1, false);
             returned_last_modified = blobProperty.last_modified;
-            truncate(destPath.c_str(), blobProperty.size);
+            int rc = truncate(destPath.c_str(), blobProperty.size);
+            if (rc != 0) {
+                syslog(LOG_ERR, "failed to truncate file");
+            }
             return;
         }
 
@@ -804,7 +807,6 @@ namespace microsoft_azure {
             int rc = stat(destPath.c_str(), &stat_buf);
             if (rc != 0) {
                 syslog(LOG_ERR, "failed to get file size");
-                errno = unknown_error;
                 return;
             }
 
