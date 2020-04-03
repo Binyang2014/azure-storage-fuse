@@ -672,7 +672,7 @@ namespace microsoft_azure {
                 errno = client_not_init;
                 return;
             }
-            auto fd = open(destPath.c_str(), O_WRONLY, 0770);
+            auto fd = open(destPath.c_str(), O_WRONLY|O_CREAT, 0770);
             if (-1 == fd) {
                 errno = unknown_error;
                 return;

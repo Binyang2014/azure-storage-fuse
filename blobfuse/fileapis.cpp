@@ -185,6 +185,23 @@ int azs_open(const char *path, struct fuse_file_info *fi)
  */
 int azs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
+    syslog(LOG_INFO, "azs_read called with path %s\n", path);
+
+    std::string pathString(path);
+    std::ofstream os(destPath.c_str(), std::ofstream::binary | std::ofstream::out);
+    os.seekp(offset);
+
+    auto fmutex = file_lock_map::get_instance()->get_mutex(path);
+    std::unique_lock<std::mutex> lock(*fmutex, std::defer_lock);
+    lock.lock();
+    azure_blob_client_wrapper->download_blob_to_stream(str_options.containerName, pathString.substr(1), offset, size, os);
+    lock.unlock();
+
+    if (errno != 0) {
+        syslog(LOG_ERR, "Failed to download data form azure\n");
+        return -errno;
+    }
+
     int fd = ((struct fhwrapper *)fi->fh)->fh;
 
     errno = 0;
