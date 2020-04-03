@@ -32,7 +32,7 @@ std::shared_ptr<std::mutex> file_lock_map::get_mutex(const std::string& path)
     }
 }
 
-std::unordered_map<std:string, std:vector<bool>> s_file_map;
+std::unordered_map<std::string, std:vector<bool>> s_file_map;
 
 std::shared_ptr<file_lock_map> file_lock_map::s_instance;
 std::mutex file_lock_map::s_mutex;
