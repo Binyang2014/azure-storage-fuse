@@ -812,7 +812,7 @@ namespace microsoft_azure {
                 const auto length = size;
                 const auto chunk_size = std::max(DOWNLOAD_CHUNK_SIZE, (left + downloaders - 1)/ downloaders);
                 std::vector<std::future<int>> task_list;
-                for(unsigned long long offset = file_offset; offset < length; offset += chunk_size)
+                for(unsigned long long offset = file_offset; offset < file_offset + length; offset += chunk_size)
                 {
                     const auto range = std::min(chunk_size, length - offset);
                     auto single_download = std::async(std::launch::async, [offset, range, this, &destPath, &container, &blob](){
