@@ -16,6 +16,7 @@
 namespace microsoft_azure {
     namespace storage {
         const unsigned long long DOWNLOAD_CHUNK_SIZE = 16 * 1024 * 1024;
+        const unsigned long long MARK_CHUNK_SIZE = 1 * 1024 * 1024;
         const long long MIN_UPLOAD_CHUNK_SIZE = 16 * 1024 * 1024;
         const long long MAX_BLOB_SIZE = 5242880000000; // 4.77TB 
 
@@ -684,7 +685,7 @@ namespace microsoft_azure {
                 return;
             }
             // always flush file map when open a file
-            file_map[destPath] = std::vector<bool>(blobProperty.size / DOWNLOAD_CHUNK_SIZE + 1, false);
+            file_map[destPath] = std::vector<bool>(blobProperty.size / MARK_CHUNK_SIZE + 1, false);
             returned_last_modified = blobProperty.last_modified;
             int rc = truncate(destPath.c_str(), blobProperty.size);
             if (rc != 0) {
@@ -813,7 +814,6 @@ namespace microsoft_azure {
             const unsigned long long file_size = stat_buf.st_size;
 
             const size_t downloaders = std::min(parallel, static_cast<size_t>(m_concurrency));
-            storage_outcome<chunk_property> firstChunk;
             try
             {
                 int errcode = 0;
@@ -823,7 +823,11 @@ namespace microsoft_azure {
                 // Download the rest.
                 const auto left = size;
                 const auto end_offset = file_offset + size; 
-                const auto chunk_size = std::max(DOWNLOAD_CHUNK_SIZE, (left + downloaders - 1)/ downloaders);
+                auto chunk_size = std::max(DOWNLOAD_CHUNK_SIZE, (left + downloaders - 1)/ downloaders);
+                // for small situaction
+                if (chunk_size > left) {
+                    chunk_size = MARK_CHUNK_SIZE;
+                }
                 std::vector<std::future<int>> task_list;
                 for(unsigned long long offset = file_offset; offset < end_offset; offset += chunk_size)
                 {

@@ -190,13 +190,13 @@ int azs_open(const char *path, struct fuse_file_info *fi)
 int azs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
     syslog(LOG_ERR, "azs_read called with path %s offset %lu size %lu\n", path, offset, size);
-    const unsigned long long DOWNLOAD_CHUNK_SIZE = 16 * 1024 * 1024;
+    const unsigned long long MARK_CHUNK_SIZE = 1 * 1024 * 1024;
     std::string pathString(path);
     std::string mntPathString = prepend_mnt_path_string(pathString);
 
     auto fmutex = file_lock_map::get_instance()->get_mutex(path);
-    size_t begin_chunk = offset / DOWNLOAD_CHUNK_SIZE;
-    size_t end_chunk = (offset + size - 1) / DOWNLOAD_CHUNK_SIZE;
+    size_t begin_chunk = offset / MARK_CHUNK_SIZE;
+    size_t end_chunk = (offset + size - 1) / MARK_CHUNK_SIZE;
 
     size_t real_offset = offset;
     long long real_size = size;
@@ -204,8 +204,8 @@ int azs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse
         std::lock_guard<std::mutex> lock(*fmutex);
         for (size_t i = begin_chunk; i <= end_chunk; ++i) {
             if (s_file_map[mntPathString][i] == true) {
-                real_offset += DOWNLOAD_CHUNK_SIZE;
-                real_size -= DOWNLOAD_CHUNK_SIZE;
+                real_offset += MARK_CHUNK_SIZE;
+                real_size -= MARK_CHUNK_SIZE;
             }
             else {
                 break;
@@ -213,10 +213,10 @@ int azs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse
         }
 
         if (real_size > 0) {
-            begin_chunk = real_offset / DOWNLOAD_CHUNK_SIZE;
+            begin_chunk = real_offset / MARK_CHUNK_SIZE;
             for (int i = end_chunk; i >= (int)begin_chunk; --i) {
                 if (s_file_map[mntPathString][i] == true) {
-                    real_size -= DOWNLOAD_CHUNK_SIZE;
+                    real_size -= MARK_CHUNK_SIZE;
                 }
             }
             if (real_size > 0) {
@@ -228,8 +228,8 @@ int azs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse
                     return -errno;
                 }
 
-                begin_chunk = offset / DOWNLOAD_CHUNK_SIZE;
-                end_chunk = (offset + size - 1) / DOWNLOAD_CHUNK_SIZE;
+                begin_chunk = offset / MARK_CHUNK_SIZE;
+                end_chunk = (offset + size - 1) / MARK_CHUNK_SIZE;
                 for (size_t i = begin_chunk; i <= end_chunk; ++i) {
                     s_file_map[mntPathString][i] = true;
                 }
