@@ -835,7 +835,7 @@ namespace microsoft_azure {
                     if (offset + range > file_size) {
                         range = file_size - offset;
                     }
-                    syslog(LOG_ERR, "set download offset %llu, range %llu", offset, range);
+                    syslog(LOG_DEBUG, "set download offset %llu, range %llu", offset, range);
                     auto single_download = std::async(std::launch::async, [offset, range, this, &destPath, &container, &blob](){
                             // Note, keep std::ios_base::in to prevent truncating of the file.
                             std::ofstream output(destPath.c_str(), std::ios_base::out |  std::ios_base::in);
