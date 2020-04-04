@@ -200,37 +200,39 @@ int azs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse
 
     size_t real_offset = offset;
     long long real_size = size;
-    for (size_t i = begin_chunk; i <= end_chunk; ++i) {
-        if (s_file_map[mntPathString][i] == true) {
-            real_offset += DOWNLOAD_CHUNK_SIZE;
-            real_size -= DOWNLOAD_CHUNK_SIZE;
-        }
-        else {
-            break;
-        }
-    }
-
-    if (real_size > 0) {
-        begin_chunk = real_offset / DOWNLOAD_CHUNK_SIZE;
-        for (int i = end_chunk; i >= (int)begin_chunk; --i) {
+    {
+        std::lock_guard<std::mutex> lock(*fmutex);
+        for (size_t i = begin_chunk; i <= end_chunk; ++i) {
             if (s_file_map[mntPathString][i] == true) {
+                real_offset += DOWNLOAD_CHUNK_SIZE;
                 real_size -= DOWNLOAD_CHUNK_SIZE;
             }
-        }
-        if (real_size > 0) {
-            std::lock_guard<std::mutex> lock(*fmutex);
-            syslog(LOG_ERR, "Read file from Azure, offset is %lu, size is %lld\n", real_offset, real_size);
-            azure_blob_client_wrapper->download_blob_to_file(str_options.containerName, pathString.substr(1), mntPathString, real_offset, real_size);
-
-            if (errno != 0) {
-                syslog(LOG_ERR, "Failed to download data form azure\n");
-                return -errno;
+            else {
+                break;
             }
+        }
 
-            begin_chunk = offset / DOWNLOAD_CHUNK_SIZE;
-            end_chunk = (offset + size - 1) / DOWNLOAD_CHUNK_SIZE;
-            for (size_t i = begin_chunk; i <= end_chunk; ++i) {
-                s_file_map[mntPathString][i] = true;
+        if (real_size > 0) {
+            begin_chunk = real_offset / DOWNLOAD_CHUNK_SIZE;
+            for (int i = end_chunk; i >= (int)begin_chunk; --i) {
+                if (s_file_map[mntPathString][i] == true) {
+                    real_size -= DOWNLOAD_CHUNK_SIZE;
+                }
+            }
+            if (real_size > 0) {
+                syslog(LOG_ERR, "Read file from Azure, offset is %lu, size is %lld\n", real_offset, real_size);
+                azure_blob_client_wrapper->download_blob_to_file(str_options.containerName, pathString.substr(1), mntPathString, real_offset, real_size);
+
+                if (errno != 0) {
+                    syslog(LOG_ERR, "Failed to download data form azure\n");
+                    return -errno;
+                }
+
+                begin_chunk = offset / DOWNLOAD_CHUNK_SIZE;
+                end_chunk = (offset + size - 1) / DOWNLOAD_CHUNK_SIZE;
+                for (size_t i = begin_chunk; i <= end_chunk; ++i) {
+                    s_file_map[mntPathString][i] = true;
+                }
             }
         }
     }
