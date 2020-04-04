@@ -219,6 +219,7 @@ int azs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse
                     real_size -= MARK_CHUNK_SIZE;
                 }
             }
+            syslog(LOG_ERR, "begin chunk is %lu, end chunk is %lu\n", begin_chunk, end_chunk);
             if (real_size > 0) {
                 syslog(LOG_ERR, "Read file from Azure, offset is %lu, size is %lld\n", real_offset, real_size);
                 azure_blob_client_wrapper->download_blob_to_file(str_options.containerName, pathString.substr(1), mntPathString, real_offset, real_size);
@@ -228,6 +229,7 @@ int azs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse
                     return -errno;
                 }
 
+                syslog(LOG_ERR, "mark begin chunk is %lu, end chunk is %lu\n", begin_chunk, end_chunk);
                 begin_chunk = offset / MARK_CHUNK_SIZE;
                 end_chunk = (offset + size - 1) / MARK_CHUNK_SIZE;
                 for (size_t i = begin_chunk; i <= end_chunk; ++i) {
