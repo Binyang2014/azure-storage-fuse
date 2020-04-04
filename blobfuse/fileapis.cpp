@@ -195,14 +195,20 @@ int azs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse
     std::string mntPathString = prepend_mnt_path_string(pathString);
 
     auto fmutex = file_lock_map::get_instance()->get_mutex(path);
-    size_t begin_chunk = offset / MARK_CHUNK_SIZE;
-    size_t end_chunk = (offset + size - 1) / MARK_CHUNK_SIZE;
+    int64_t begin_chunk = offset / MARK_CHUNK_SIZE;
+    int64_t end_chunk = (offset + size - 1) / MARK_CHUNK_SIZE;
 
     size_t real_offset = offset;
     long long real_size = size;
     {
         std::lock_guard<std::mutex> lock(*fmutex);
-        for (size_t i = begin_chunk; i <= end_chunk; ++i) {
+        syslog(LOG_ERR, "read chunk is %lld, end chunk is %lld\n", begin_chunk, end_chunk);
+        const auto begin_chunk_left = MARK_CHUNK_SIZE - begin_chunk % MARK_CHUNK_SIZE;
+        if (s_file_map[mntPathString][begin_chunk] == true) {
+            real_offset += begin_chunk_left;
+            real_size -= begin_chunk_left;
+        }
+        for (size_t i = begin_chunk + 1; i <= end_chunk; ++i) {
             if (s_file_map[mntPathString][i] == true) {
                 real_offset += MARK_CHUNK_SIZE;
                 real_size -= MARK_CHUNK_SIZE;
@@ -214,12 +220,16 @@ int azs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse
 
         if (real_size > 0) {
             begin_chunk = real_offset / MARK_CHUNK_SIZE;
-            for (int i = end_chunk; i >= (int)begin_chunk; --i) {
+            const auto end_chunk_offset = (offset + size) % MARK_CHUNK_SIZE;
+            if (s_file_map[mntPathString][end_chunk] == true) {
+                real_size -= end_chunk_offset;
+            }
+            for (int i = end_chunk - 1; i >= (int)begin_chunk; --i) {
                 if (s_file_map[mntPathString][i] == true) {
                     real_size -= MARK_CHUNK_SIZE;
                 }
             }
-            syslog(LOG_ERR, "begin chunk is %lu, end chunk is %lu\n", begin_chunk, end_chunk);
+            syslog(LOG_ERR, "begin chunk is %lld, end chunk is %lld\n", begin_chunk, end_chunk);
             if (real_size > 0) {
                 syslog(LOG_ERR, "Read file from Azure, offset is %lu, size is %lld\n", real_offset, real_size);
                 azure_blob_client_wrapper->download_blob_to_file(str_options.containerName, pathString.substr(1), mntPathString, real_offset, real_size);
@@ -229,7 +239,7 @@ int azs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse
                     return -errno;
                 }
 
-                syslog(LOG_ERR, "mark begin chunk is %lu, end chunk is %lu\n", begin_chunk, end_chunk);
+                syslog(LOG_ERR, "mark begin chunk is %lld, end chunk is %lld\n", begin_chunk, end_chunk);
                 begin_chunk = offset / MARK_CHUNK_SIZE;
                 end_chunk = (offset + size - 1) / MARK_CHUNK_SIZE;
                 for (size_t i = begin_chunk; i <= end_chunk; ++i) {
