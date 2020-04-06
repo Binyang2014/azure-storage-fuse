@@ -1,6 +1,8 @@
 #include "blobfuse.h"
 #include <sys/file.h>
 #include <vector>
+#include <chrono>
+#include <thread>
 #include <unordered_map>
 
 file_lock_map* file_lock_map::get_instance()
@@ -32,7 +34,10 @@ std::shared_ptr<std::mutex> file_lock_map::get_mutex(const std::string& path)
     }
 }
 
-std::unordered_map<std::string, std::vector<bool>> s_file_map;
+std::unordered_map<std::string, std::vector<char>> s_file_map;
+const char INVALID = 0;
+const char PENDING = 1;
+const char FINISHED = 2;
 
 std::shared_ptr<file_lock_map> file_lock_map::s_instance;
 std::mutex file_lock_map::s_mutex;
@@ -198,44 +203,46 @@ int azs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse
     int64_t begin_chunk = offset / MARK_CHUNK_SIZE;
     int64_t end_chunk = (offset + size - 1) / MARK_CHUNK_SIZE;
 
-    size_t real_offset = begin_chunk * MARK_CHUNK_SIZE;
+    std::vector<int64_t> invalid_chunks;
     long long real_size = (end_chunk - begin_chunk + 1) * MARK_CHUNK_SIZE;
     {
         std::lock_guard<std::mutex> lock(*fmutex);
         for (int i = begin_chunk; i <= end_chunk; ++i) {
-            if (s_file_map[mntPathString][i] == true) {
-                real_offset += MARK_CHUNK_SIZE;
-                real_size -= MARK_CHUNK_SIZE;
+            if (s_file_map[mntPathString][i] == INVALID) {
+                invalid_chunks.push_back(i);
             }
-            else {
+        }
+        std::for_each(invalid_chunks.begin(), invalid_chunks.end(), [](uint64_t v){
+            s_file_map[mntPathString][v] = PENDING;
+        })
+    }
+    // download for new pending chunks, sync version first
+    std::for_each(invalid_chunks.begin(), invalid_chunks.end(), [](uint64_t v){
+        const auto offset = v * MARK_CHUNK_SIZE;
+        azure_blob_client_wrapper->download_chunk_to_file(str_options.containerName, pathString.substr(1), mntPathString, offset, MARK_CHUNK_SIZE);
+    })
+    {
+        std::lock_guard<std::mutex> lock(*fmutex);
+        std::for_each(invalid_chunks.begin(), invalid_chunks.end(), [](uint64_t v){
+            s_file_map[mntPathString][v] = FINISHED;
+        })
+    }
+
+    while (true) {
+        {
+            // std::lock_guard<std::mutex> lock(*fmutex);
+            int i = 0;
+            for (i = begin_chunk; i <= end_chunk; ++i) {
+                if (s_file_map[mntPathString][i] != FINISHED) {
+                    break;
+                }
+            }
+            if (i > end_chunk) {
                 break;
             }
         }
-
-        if (real_size > 0) {
-            begin_chunk = real_offset / MARK_CHUNK_SIZE;
-            for (int i = end_chunk; i >= (int)begin_chunk; --i) {
-                if (s_file_map[mntPathString][i] == true) {
-                    real_size -= MARK_CHUNK_SIZE;
-                }
-            }
-            if (real_size > 0) {
-                azure_blob_client_wrapper->download_blob_to_file(str_options.containerName, pathString.substr(1), mntPathString, real_offset, real_size);
-
-                if (errno != 0) {
-                    syslog(LOG_ERR, "Failed to download data form azure\n");
-                    return -errno;
-                }
-
-                begin_chunk = offset / MARK_CHUNK_SIZE;
-                end_chunk = (offset + size - 1) / MARK_CHUNK_SIZE;
-                for (int i = begin_chunk; i <= end_chunk; ++i) {
-                    s_file_map[mntPathString][i] = true;
-                }
-            }
-        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-
 
     int fd = ((struct fhwrapper *)fi->fh)->fh;
 

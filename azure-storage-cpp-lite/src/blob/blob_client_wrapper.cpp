@@ -796,7 +796,7 @@ namespace microsoft_azure {
             return;
         }
 
-        void blob_client_wrapper::download_blob_to_file(const std::string &container, const std::string &blob, const std::string &destPath, const unsigned long long file_offset, const unsigned long long size, size_t parallel)
+        void blob_client_wrapper::download_chunk_to_file(const std::string &container, const std::string &blob, const std::string &destPath, const unsigned long long file_offset, const unsigned long long size)
         {
             if(!is_valid())
             {
@@ -811,65 +811,29 @@ namespace microsoft_azure {
                 return;
             }
 
-            const unsigned long long file_size = stat_buf.st_size;
-
-            const size_t downloaders = std::min(parallel, static_cast<size_t>(m_concurrency));
             try
             {
                 int errcode = 0;
-                // Create or resize the target file if already exist.
-                // create_or_resize_file(destPath, length);
 
-                // Download the rest.
-                const auto left = size;
-                const auto end_offset = file_offset + size; 
-                auto chunk_size = std::max(DOWNLOAD_CHUNK_SIZE, (left + downloaders - 1)/ downloaders);
-                // for small situaction
-                if (chunk_size > left) {
-                    chunk_size = MARK_CHUNK_SIZE;
-                }
-                std::vector<std::future<int>> task_list;
-                for(unsigned long long offset = file_offset; offset < end_offset; offset += chunk_size)
+                std::ofstream output(destPath.c_str(), std::ios_base::out |  std::ios_base::in);
+                output.seekp(file_offset);
+                auto chunk = m_blobClient->get_chunk_to_stream_sync(container, blob, file_offset, size, output);
+                output.close();
+                if(!chunk.success())
                 {
-                    auto range = std::max(chunk_size, end_offset - offset);
-                    if (offset + range > file_size) {
-                        range = file_size - offset;
+                    // Looks like the blob has been replaced by smaller one - ask user to retry.
+                    if (constants::code_request_range_not_satisfiable == chunk.error().code) {
+                        errcode = EAGAIN;
                     }
-                    syslog(LOG_DEBUG, "set download offset %llu, range %llu", offset, range);
-                    auto single_download = std::async(std::launch::async, [offset, range, this, &destPath, &container, &blob](){
-                            // Note, keep std::ios_base::in to prevent truncating of the file.
-                            std::ofstream output(destPath.c_str(), std::ios_base::out |  std::ios_base::in);
-                            output.seekp(offset);
-                            auto chunk = m_blobClient->get_chunk_to_stream_sync(container, blob, offset, range, output);
-                            output.close();
-                            if(!chunk.success())
-                            {
-                                // Looks like the blob has been replaced by smaller one - ask user to retry.
-                                if (constants::code_request_range_not_satisfiable == chunk.error().code) {
-                                    return EAGAIN;
-                                }
-                                return std::stoi(chunk.error().code);
-                            }
-
-                            // Check for any writing errors.
-                            if (!output) {
-                                syslog(LOG_ERR, "get_chunk_to_stream_async failure in download_blob_to_file.  container = %s, blob = %s, destPath = %s, offset = %llu, range = %llu.", container.c_str(), blob.c_str(), destPath.c_str(), offset, range);
-                                return unknown_error;
-                            }
-                            return 0;
-                        });
-                    task_list.push_back(std::move(single_download));
+                    else {
+                        errcode = std::stoi(chunk.error().code);
+                    }
                 }
 
-                // Wait for workers to complete downloading.
-                for(size_t i = 0; i < task_list.size(); ++i)
-                {
-                    task_list[i].wait();
-                    auto result = task_list[i].get();
-                    // let's report the first encountered error for consistency.
-                    if (0 != result && errcode == 0) {
-                        errcode = result;
-                    }
+                // Check for any writing errors.
+                if (!output) {
+                    syslog(LOG_ERR, "get_chunk_to_stream_async failure in download_blob_to_file.  container = %s, blob = %s, destPath = %s, offset = %llu, range = %llu.", container.c_str(), blob.c_str(), destPath.c_str(), file_offset, size);
+                    return unknown_error;
                 }
                 errno = errcode;
             }

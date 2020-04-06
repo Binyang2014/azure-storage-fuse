@@ -346,7 +346,7 @@ namespace microsoft_azure { namespace storage {
         /// <param name="parallel">A size_t value indicates the maximum parallelism can be used in this request.</param>
         virtual void download_blob_to_file(const std::string &container, const std::string &blob, const std::string &destPath, time_t &returned_last_modified, size_t parallel = 9) = 0;
 
-        virtual void download_blob_to_file(const std::string &container, const std::string &blob, const std::string &destPath, const unsigned long long file_offset, const unsigned long long size, size_t parallel = 9) = 0;
+        virtual void download_chunk_to_file(const std::string &container, const std::string &blob, const std::string &destPath, const unsigned long long file_offset, const unsigned long long size) = 0;
         
         virtual void create_mock_file(const std::string &container, const std::string &blob, const std::string &destPath, std::unordered_map<std::string, std::vector<bool>> &file_map, time_t &returned_last_modified) = 0;
         /// <summary>
@@ -525,7 +525,7 @@ namespace microsoft_azure { namespace storage {
         /// <returns>A <see cref="storage_outcome" /> object that represents the properties (etag, last modified time and size) from the first chunk retrieved.</returns>
         void download_blob_to_file(const std::string &container, const std::string &blob, const std::string &destPath, time_t &returned_last_modified, size_t parallel = 9);
 
-        void download_blob_to_file(const std::string &container, const std::string &blob, const std::string &destPath, const unsigned long long file_offset, const unsigned long long size, size_t parallel = 9);
+        void download_chunk_to_file(const std::string &container, const std::string &blob, const std::string &destPath, const unsigned long long file_offset, const unsigned long long size);
         // Only create a mock file with correct filename, will not download the whole file
         void create_mock_file(const std::string &container, const std::string &blob, const std::string &destPath, std::unordered_map<std::string, std::vector<bool>> &file_map, time_t &returned_last_modified);
 
@@ -813,7 +813,7 @@ namespace microsoft_azure { namespace storage {
         void download_blob_to_file(const std::string &container, const std::string &blob, const std::string &destPath, time_t &returned_last_modified, size_t parallel = 8);
 
         #pragma GCC diagnostic ignored "-Wunused-parameter"
-        void download_blob_to_file(const std::string &container, const std::string &blob, const std::string &destPath,const unsigned long long file_offset, const unsigned long long size, size_t parallel = 9) {};
+        void download_chunk_to_file(const std::string &container, const std::string &blob, const std::string &destPath,const unsigned long long file_offset, const unsigned long long size) {};
         void create_mock_file(const std::string &container, const std::string &blob, const std::string &destPath, std::unordered_map<std::string, std::vector<bool>> &file_map, time_t &returned_last_modified) {};
         #pragma GCC diagnostic pop
         /// <summary>
