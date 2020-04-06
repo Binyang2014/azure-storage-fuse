@@ -212,20 +212,20 @@ int azs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse
                 invalid_chunks.push_back(i);
             }
         }
-        std::for_each(invalid_chunks.begin(), invalid_chunks.end(), [](uint64_t v){
+        std::for_each(invalid_chunks.begin(), invalid_chunks.end(), [&mntPathString](uint64_t v){
             s_file_map[mntPathString][v] = PENDING;
-        })
+        });
     }
     // download for new pending chunks, sync version first
-    std::for_each(invalid_chunks.begin(), invalid_chunks.end(), [](uint64_t v){
+    std::for_each(invalid_chunks.begin(), invalid_chunks.end(), [&pathString, &mntPathString](uint64_t v){
         const auto offset = v * MARK_CHUNK_SIZE;
         azure_blob_client_wrapper->download_chunk_to_file(str_options.containerName, pathString.substr(1), mntPathString, offset, MARK_CHUNK_SIZE);
-    })
+    });
     {
         std::lock_guard<std::mutex> lock(*fmutex);
-        std::for_each(invalid_chunks.begin(), invalid_chunks.end(), [](uint64_t v){
+        std::for_each(invalid_chunks.begin(), invalid_chunks.end(), [&mntPathString](uint64_t v){
             s_file_map[mntPathString][v] = FINISHED;
-        })
+        });
     }
 
     while (true) {
