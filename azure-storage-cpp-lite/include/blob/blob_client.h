@@ -348,7 +348,7 @@ namespace microsoft_azure { namespace storage {
 
         virtual void download_chunk_to_file(const std::string &container, const std::string &blob, const std::string &destPath, const unsigned long long file_offset, const unsigned long long size) = 0;
         
-        virtual void create_mock_file(const std::string &container, const std::string &blob, const std::string &destPath, std::unordered_map<std::string, std::vector<bool>> &file_map, time_t &returned_last_modified) = 0;
+        virtual void create_mock_file(const std::string &container, const std::string &blob, const std::string &destPath, std::unordered_map<std::string, std::vector<char>> &file_map, time_t &returned_last_modified) = 0;
         /// <summary>
         /// Gets the property of a blob.
         /// </summary>
@@ -527,7 +527,7 @@ namespace microsoft_azure { namespace storage {
 
         void download_chunk_to_file(const std::string &container, const std::string &blob, const std::string &destPath, const unsigned long long file_offset, const unsigned long long size);
         // Only create a mock file with correct filename, will not download the whole file
-        void create_mock_file(const std::string &container, const std::string &blob, const std::string &destPath, std::unordered_map<std::string, std::vector<bool>> &file_map, time_t &returned_last_modified);
+        void create_mock_file(const std::string &container, const std::string &blob, const std::string &destPath, std::unordered_map<std::string, std::vector<char>> &file_map, time_t &returned_last_modified);
 
         /// <summary>
         /// Gets the property of a blob.
@@ -814,7 +814,7 @@ namespace microsoft_azure { namespace storage {
 
         #pragma GCC diagnostic ignored "-Wunused-parameter"
         void download_chunk_to_file(const std::string &container, const std::string &blob, const std::string &destPath,const unsigned long long file_offset, const unsigned long long size) {};
-        void create_mock_file(const std::string &container, const std::string &blob, const std::string &destPath, std::unordered_map<std::string, std::vector<bool>> &file_map, time_t &returned_last_modified) {};
+        void create_mock_file(const std::string &container, const std::string &blob, const std::string &destPath, std::unordered_map<std::string, std::vector<char>> &file_map, time_t &returned_last_modified) {};
         #pragma GCC diagnostic pop
         /// <summary>
         /// Gets the property of a blob.

@@ -666,7 +666,7 @@ namespace microsoft_azure {
             }
         }
 
-        void blob_client_wrapper::create_mock_file(const std::string &container, const std::string &blob, const std::string &destPath, std::unordered_map<std::string, std::vector<bool>> &file_map, time_t &returned_last_modified)
+        void blob_client_wrapper::create_mock_file(const std::string &container, const std::string &blob, const std::string &destPath, std::unordered_map<std::string, std::vector<char>> &file_map, time_t &returned_last_modified)
         {
             if(!is_valid())
             {
@@ -685,7 +685,7 @@ namespace microsoft_azure {
                 return;
             }
             // always flush file map when open a file
-            file_map[destPath] = std::vector<bool>(blobProperty.size / MARK_CHUNK_SIZE + 1, false);
+            file_map[destPath] = std::vector<char>(blobProperty.size / MARK_CHUNK_SIZE + 1, 0);
             returned_last_modified = blobProperty.last_modified;
             int rc = truncate(destPath.c_str(), blobProperty.size);
             if (rc != 0) {
