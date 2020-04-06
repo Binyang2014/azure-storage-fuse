@@ -204,7 +204,6 @@ int azs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse
     int64_t end_chunk = (offset + size - 1) / MARK_CHUNK_SIZE;
 
     std::vector<int64_t> invalid_chunks;
-    long long real_size = (end_chunk - begin_chunk + 1) * MARK_CHUNK_SIZE;
     {
         std::lock_guard<std::mutex> lock(*fmutex);
         for (int i = begin_chunk; i <= end_chunk; ++i) {

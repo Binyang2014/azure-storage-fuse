@@ -833,9 +833,10 @@ namespace microsoft_azure {
                 // Check for any writing errors.
                 if (!output) {
                     syslog(LOG_ERR, "get_chunk_to_stream_async failure in download_blob_to_file.  container = %s, blob = %s, destPath = %s, offset = %llu, range = %llu.", container.c_str(), blob.c_str(), destPath.c_str(), file_offset, size);
-                    return unknown_error;
+                    errno = unknown_error;
+                } else {
+                    errno = errcode;
                 }
-                errno = errcode;
             }
             catch(std::exception& ex)
             {
